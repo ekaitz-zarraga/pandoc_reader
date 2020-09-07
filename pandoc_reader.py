@@ -2,6 +2,13 @@ import subprocess
 from pelican import signals
 from pelican.readers import BaseReader
 from pelican.utils import pelican_open
+from yaml import load
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
+
+from datetime import datetime
 
 class PandocReader(BaseReader):
     enabled = True
@@ -9,17 +16,24 @@ class PandocReader(BaseReader):
 
     def read(self, filename):
         with pelican_open(filename) as fp:
-            text = list(fp.splitlines())
+            text = tuple(fp.splitlines())
 
         metadata = {}
-        for i, line in enumerate(text):
-            kv = line.split(':', 1)
-            if len(kv) == 2:
-                name, value = kv[0].lower(), kv[1].strip()
-                metadata[name] = self.process_metadata(name, value)
-            else:
-                content = "\n".join(text[i:])
-                break
+        init = text.index("...")
+        end  = text[init:].index("---") + init
+
+        metatext = "\n".join(text[init+1:end])
+        metadata = load(metatext, Loader=Loader)
+
+        if "Date" in metadata:
+            # Back to string because PyYaml is way too clever
+            metadata["Date"] = metadata["Date"].isoformat()
+
+        finalmeta = {}
+        for k,v in metadata.items():
+            finalmeta[k.lower()] = self.process_metadata(k.lower(),v)
+
+        content = "\n".join(text[:init] + text[end+1:])
 
         extra_args = self.settings.get('PANDOC_ARGS', [])
         extensions = self.settings.get('PANDOC_EXTENSIONS', '')
@@ -38,7 +52,7 @@ class PandocReader(BaseReader):
         if status:
             raise subprocess.CalledProcessError(status, pandoc_cmd)
 
-        return output, metadata
+        return output, finalmeta
 
 def add_reader(readers):
     for ext in PandocReader.file_extensions:

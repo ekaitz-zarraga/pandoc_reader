@@ -8,7 +8,7 @@ Requirements
 ------------
 
   - [pandoc] in $PATH
-
+  - PyYaml for metadata loading
 
 Installation
 ------------
