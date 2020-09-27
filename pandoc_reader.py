@@ -52,6 +52,10 @@ class PandocReader(BaseReader):
         if status:
             raise subprocess.CalledProcessError(status, pandoc_cmd)
 
+        # Need that to make {static} -like tags be available
+        output = output.replace("%7B", "{")
+        output = output.replace("%7D", "}")
+
         return output, finalmeta
 
 def add_reader(readers):
